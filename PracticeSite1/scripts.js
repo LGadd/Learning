@@ -1,9 +1,20 @@
-const fixedTimestep = 20;
+const fixedTimestep = 5;
 let lastUpdateTime = Date.now();
 let elapsedTime = 0;
 
 const g = 9.81;
-const G = 0.15;
+
+const worldScale = 10;
+
+function pixelsToMeters(pixels = 0){
+    return pixels / worldScale;
+}
+
+function metersToPixels(meters = 0){
+    return meters * worldScale;
+}
+
+const G = 1;
 let elasticity = 0.75;
 
 class Vector2
@@ -36,29 +47,31 @@ class Circle {
     constructor(
         x = Math.random() * 1280,
         y = Math.random() * 720,
-        radius = Math.random() * 65 + 10,
-        density = Math.random() * 0.5 + 0.5,
+        radius = Math.random() * 25 + 25,
+        density = Math.random() * 5 + 1,
         seed = Math.random() * 6.28,
-        frequency = Math.random() + 0.5,
-        fxMax = Math.random() * 50000 + 15000,
-        fyMax = Math.random() * (100000 + 25000) * 2,
+        frequency = Math.random() * 0.5 + 1,
+        fxMax = (Math.random() * 250) + 500,
+        fyMax = (Math.random() * 250) + 125,
         color = Circle.getRandomColor()
     ){
         this.radius = radius;
-        this.mass = Math.PI * radius * radius * density;
+        this.worldRadius = pixelsToMeters(radius);
+        const area = Math.PI * this.worldRadius * this.worldRadius;
+        this.mass = area * density;
         this.seed = seed;
         this.fMax = new Vector2(fxMax,fyMax);
         this.force = new Vector2(0,0);
         this.acceleration = new Vector2(0,0);
         this.velocity = new Vector2(0,0);
-        this.position = new Vector2(x,y);
+        this.worldPosition = new Vector2(pixelsToMeters(x),pixelsToMeters(y));
+        this.pixelPosition = new Vector2(x,y);
         this.frequency = frequency;
 
         this.element = document.createElement("div");
         this.element.classList.add("circle");
-
-        this.element.style.width = `${radius * 2}px`;
-        this.element.style.height = `${radius * 2}px`;
+        this.element.style.width = `${radius * 2 }px`;
+        this.element.style.height = `${radius * 2 }px`;
         this.element.style.backgroundColor = color;
         this.element.style.left = `${x}px`;
         this.element.style.top = `${y}px`;
@@ -75,7 +88,7 @@ class Circle {
         ];
         return colors[Math.floor(Math.random() * colors.length)];
     }
-    applyPhysics(delta, gravity = 98.1 , elasticity = 0.75, planetryForces = new Vector2(0,0))
+    applyPhysics(delta, gravity = 9.81 , elasticity = 0.75, planetryForces = new Vector2(0,0))
     {
         this.force.setVector(
             Math.sin(elapsedTime * this.frequency + this.seed) * this.fMax.x, 
@@ -86,11 +99,12 @@ class Circle {
     
         this.acceleration.setVector(
             this.force.x / this.mass, 
-            this.force.y / this.mass + gravity
+            this.force.y / this.mass + Math.sin(Math.cos(elapsedTime*this.frequency + this.seed)*this.frequency + this.seed) * gravity
         );
         
         this.velocity.addScale(this.acceleration.clone(),delta);
-        this.position.addScale(this.velocity.clone(),delta);
+        this.worldPosition.addScale(this.velocity.clone(),delta);
+        this.pixelPosition.setVector(metersToPixels(this.worldPosition.x),metersToPixels(this.worldPosition.y));
 
         this.checkBounds(elasticity);
         this.render();
@@ -103,62 +117,47 @@ class Circle {
 
         const r = this.radius * 2;
 
-        var leftBoundBreached = this.position.x < 0;
-        var rightBoundBreached = this.position.x + r > width; 
+        var leftBoundBreached = this.pixelPosition.x < 0;
+        var rightBoundBreached = this.pixelPosition.x + r > width; 
 
         if(leftBoundBreached || rightBoundBreached)
         {
             this.velocity.x *= -elasticity;
 
-            if (rightBoundBreached) this.position.x = width - r;
-            if (leftBoundBreached) this.position.x = 0;
+            if (rightBoundBreached) this.pixelPosition.x = width - r;
+            if (leftBoundBreached) this.pixelPosition.x = 0;
+            this.worldPosition.x = pixelsToMeters(this.pixelPosition.x);
         }
 
-        var topBoundBreached = this.position.y < 0;
-        var bottomBoundBreached = this.position.y + r > height; 
+        var topBoundBreached = this.pixelPosition.y < 0;
+        var bottomBoundBreached = this.pixelPosition.y + r > height; 
         
         if(topBoundBreached || bottomBoundBreached)
         {
             this.velocity.y *= -elasticity;
 
-            if (bottomBoundBreached) this.position.y = height - r;
-            if (topBoundBreached) this.position.y = 0;
+            if (bottomBoundBreached) this.pixelPosition.y = height - r;
+            if (topBoundBreached) this.pixelPosition.y = 0;
+            this.worldPosition.y = pixelsToMeters(this.pixelPosition.y);
         }
     }
 
+
+    getCenterWorld() {
+        return this.worldPosition.clone().add(new Vector2(this.worldRadius, this.worldRadius));
+    }
+    
+
     render(){
-        this.element.style.left = `${this.position.x}px`;
-        this.element.style.top = `${this.position.y}px`;
+        this.element.style.left = `${this.pixelPosition.x}px`;
+        this.element.style.top = `${this.pixelPosition.y}px`;
     }
 
 }
 
+const NUM_CIRCLES = 50;
+const circles = Array.from({ length: NUM_CIRCLES }, () => new Circle());
 
-const circles = [
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle(),
-    new Circle()
-];
 
 
 setInterval(() => {
@@ -173,19 +172,22 @@ setInterval(() => {
     for(let i = 0; i < circles.length; i ++){
         let iCircle = circles[i];
         let netForce = new Vector2(0,0);
+        let iCenter = iCircle.getCenterWorld();
 
         for (let j = 0; j < circles.length; j++){
             if(i==j) continue;
             
             let jCircle = circles[j];
+            let jCenter = jCircle.getCenterWorld();
 
-            let dir = jCircle.position.clone().subtract(iCircle.position);
+            let dir = jCenter.clone().subtract(iCenter);
+
             let dist = dir.magnitude();
 
-            let minDist = iCircle.radius + jCircle.radius;
+            let minDist = iCircle.worldRadius + jCircle.worldRadius;
             if(dist < minDist) dist = minDist;
 
-            let forceMag = (G * iCircle.mass * jCircle.mass) / ((dist/10) * (dist/10));
+            let forceMag = G * ((iCircle.mass * jCircle.mass) / (dist * dist));
 
             dir.normalize().scale(forceMag);
             netForce.add(dir);

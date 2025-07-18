@@ -27,14 +27,14 @@ body {
     border-radius: 12px;
     box-shadow: 0 0 25px rgba(255, 255, 255, 0.1);
     width: 90vw;
-    max-width: 1280px;
-    height: 720px;
+    max-width: 1920px;
+    height: 1080px;
     background-color: #1e1e1e;
   }
   .circle {
     position: absolute;
     border-radius: 50%;
     box-shadow: 0 0 12px rgba(255, 255, 255, 0.2); /* soft white glow */
-    border: 1px solid rgba(255, 255, 255, 0.3);    /* subtle border */
+    border: 0px solid rgba(51, 255, 0, 0.3);    /* subtle border */
   }
   
